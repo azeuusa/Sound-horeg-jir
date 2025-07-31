@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coming Down - The Weeknd</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                font-family: "Montserrat", sans-serif;
+                background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+                color: #fff;
+                overflow: hidden;
+            }
+            canvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 0;
+            }
+            .container {
+                position: relative;
+                z-index: 2;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                padding: 1rem;
+                text-align: center;
+            }
+            .album-art {
+                width: 220px;
+                height: 220px;
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: 0 0 20px #e03e70aa;
+                margin-bottom: 1rem;
+            }
+            .album-art img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .song-info {
+                margin-bottom: 1rem;
+            }
+            .song-info h1 {
+                margin: 0;
+                font-size: 1.5rem;
+                color: #e03e70;
+            }
+            .song-info p {
+                margin: 0.2rem 0;
+                font-size: 1rem;
+                color: #aaa;
+            }
+            .controls {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+                width: 300px;
+            }
+            button {
+                padding: 0.5em 1em;
+                font-size: 1rem;
+                background: #c41a5f;
+                border: none;
+                border-radius: 8px;
+                color: white;
+                cursor: pointer;
+                box-shadow: 0 0 10px #c41a5f55;
+            }
+            button:hover {
+                background: #e03e70;
+            }
+            input[type="range"] {
+                width: 100%;
+                appearance: none;
+                height: 6px;
+                background: #444;
+                border-radius: 3px;
+                outline: none;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                appearance: none;
+                width: 12px;
+                height: 12px;
+                background: #e03e70;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 0 5px #e03e70aa;
+            }
+
+            @media (max-width: 500px) {
+                .album-art {
+                    width: 150px;
+                    height: 150px;
+                }
+                .controls {
+                    width: 90%;
+                }
+            }
+            .controls button {
+                margin: 0 4px;
+            }
+            .button-row {
+                display: flex;
+                gap: 0.5rem;
+            }
+        </style>
+        <link rel="manifest" href="manifest.json" />
+        <link rel="icon" href="icon-192.png" />
+        <meta name="theme-color" content="#e03e70" />
+    </head>
+    <body>
+        <canvas id="particleCanvas"></canvas>
+        <canvas id="visualizer"></canvas>
+
+        <div class="container">
+            <div class="album-art">
+                <img src="do.jpeg" alt="Album Cover" />
+            </div>
+
+            <div class="song-info">
+                <h1>Coming Down</h1>
+                <p>by The Weeknd</p>
+                <p>from album <strong>ambatukam</strong></p>
+            </div>
+
+            <div class="controls">
+                <button id="playPauseBtn">▶ Play</button>
+                <input type="range" id="progress" value="0" step="1" />
+                <div id="timeDisplay">00:00 / 00:00</div>
+                <input
+                    type="range"
+                    id="volume"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.8"
+                />
+                <label style="color: #aaa; font-size: 0.9rem">
+                    Speed: <span id="speedValue">1.0x</span>
+                    <input
+                        type="range"
+                        id="speed"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                    />
+                </label>
+                <div class="button-row">
+                    <button id="replayBtn">↻ Replay</button>
+                    <button id="repeatBtn">🔁 Repeat: Off</button>
+                </div>
+            </div>
+        </div>
+
+        <audio id="audioPlayer" preload="auto">
+            <source src="coming-down.mp3" type="audio/mpeg" />
+        </audio>
+
+        <script>
+            const audio = document.getElementById("audioPlayer");
+            const playPauseBtn = document.getElementById("playPauseBtn");
+            const progress = document.getElementById("progress");
+            const volume = document.getElementById("volume");
+            const timeDisplay = document.getElementById("timeDisplay");
+
+            function formatTime(time) {
+                const minutes = Math.floor(time / 60);
+                const seconds = Math.floor(time % 60);
+                return `${minutes.toString().padStart(2, "0")}:${seconds
+                    .toString()
+                    .padStart(2, "0")}`;
+            }
+            playPauseBtn.addEventListener("click", () => {
+                if (audio.paused) {
+                    if (audioCtx.state === "suspended") {
+                        audioCtx.resume();
+                    }
+                    audio.play();
+                    playPauseBtn.textContent = "⏸ Pause";
+                    audioCtx.resume();
+                } else {
+                    audio.pause();
+                    playPauseBtn.textContent = "▶ Play";
+                }
+            });
+
+            audio.addEventListener("timeupdate", () => {
+                timeDisplay.textContent = `${formatTime(
+                    audio.currentTime
+                )} / ${formatTime(audio.duration)}`;
+                progress.max = audio.duration;
+                progress.value = audio.currentTime;
+            });
+
+            progress.addEventListener("input", () => {
+                audio.currentTime = progress.value;
+            });
+
+            volume.addEventListener("input", () => {
+                audio.volume = volume.value;
+            });
+
+            audio.addEventListener("loadedmetadata", () => {
+                timeDisplay.textContent = `${formatTime(
+                    audio.currentTime
+                )} / ${formatTime(audio.duration)}`;
+            });
+            // 🔥 Tambahan speed control
+            const speed = document.getElementById("speed");
+            const speedValue = document.getElementById("speedValue");
+
+            speed.addEventListener("input", () => {
+                audio.playbackRate = speed.value;
+                speedValue.textContent = speed.value + "x";
+            });
+            const replayBtn = document.getElementById("replayBtn");
+
+            replayBtn.addEventListener("click", () => {
+                audio.currentTime = 0;
+                audio.play();
+                playPauseBtn.textContent = "⏸ Pause";
+            });
+            let isRepeat = false;
+            const repeatBtn = document.getElementById("repeatBtn");
+
+            repeatBtn.addEventListener("click", () => {
+                isRepeat = !isRepeat;
+                audio.loop = isRepeat;
+                repeatBtn.textContent = isRepeat
+                    ? "🔁 Repeat: On"
+                    : "🔁 Repeat: Off";
+            });
+
+            // === VISUALIZER ===
+            const visCanvas = document.getElementById("visualizer");
+            const visCtx = visCanvas.getContext("2d");
+
+            function resizeCanvas() {
+                visCanvas.width = window.innerWidth;
+                visCanvas.height = window.innerHeight;
+            }
+            window.addEventListener("resize", resizeCanvas);
+            resizeCanvas();
+
+            const audioCtx = new (window.AudioContext ||
+                window.webkitAudioContext)();
+            const analyser = audioCtx.createAnalyser();
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            analyser.fftSize = 256;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function drawVisualizer() {
+                requestAnimationFrame(drawVisualizer);
+                analyser.getByteFrequencyData(dataArray);
+                visCtx.clearRect(0, 0, visCanvas.width, visCanvas.height);
+
+                const barWidth = (visCanvas.width / bufferLength) * 2.5;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = dataArray[i] / 1.5;
+                    visCtx.fillStyle = `rgb(224, ${62 + barHeight * 0.6}, ${
+                        112 + barHeight * 0.3
+                    })`;
+                    visCtx.fillRect(
+                        x,
+                        visCanvas.height - barHeight,
+                        barWidth,
+                        barHeight
+                    );
+                    x += barWidth + 1;
+                }
+            }
+            drawVisualizer();
+
+            // === PARTICLES ===
+            const particleCanvas = document.getElementById("particleCanvas");
+            const pCtx = particleCanvas.getContext("2d");
+            particleCanvas.width = window.innerWidth;
+            particleCanvas.height = window.innerHeight;
+
+            window.addEventListener("resize", () => {
+                particleCanvas.width = window.innerWidth;
+                particleCanvas.height = window.innerHeight;
+            });
+
+            const particles = [];
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: Math.random() * particleCanvas.width,
+                    y: Math.random() * particleCanvas.height,
+                    radius: Math.random() * 2 + 1,
+                    speedY: Math.random() * 0.3 + 0.2,
+                    alpha: Math.random() * 0.5 + 0.3
+                });
+            }
+
+            function drawParticles() {
+                pCtx.clearRect(
+                    0,
+                    0,
+                    particleCanvas.width,
+                    particleCanvas.height
+                );
+                for (let p of particles) {
+                    p.y += p.speedY;
+                    if (p.y > particleCanvas.height) p.y = 0;
+                    pCtx.beginPath();
+                    pCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    pCtx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+                    pCtx.shadowBlur = 10;
+                    pCtx.shadowColor = "#ffffff55";
+                    pCtx.fill();
+                    pCtx.closePath();
+                }
+                requestAnimationFrame(drawParticles);
+            }
+            drawParticles();
+        </script>
+        <script>
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker
+                        .register("sw.js")
+                        .then(reg =>
+                            console.log("ServiceWorker registered:", reg.scope)
+                        )
+                        .catch(err =>
+                            console.log("ServiceWorker failed:", err)
+                        );
+                });
+            }
+        </script>
+    </body>
+</html>
